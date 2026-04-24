@@ -38,21 +38,12 @@ class packet:
             data,
         )
     
-    
-    # converts raw bytes to a packet object, used at the receiver to convert the received bytes into a packet object to read the fields and verify checksum
-    @staticmethod
-    def fromBytes(raw):
-        if len(raw) < HDR_LEN:
-            raise ValueError("Packet too short {len(raw)} to be valid bytes")
-        seqNo, ackNo, flags, checksum, data = struct.unpack(
-            f"=HHBH{len(raw)-HDR_LEN}s", raw
-        )
-        return packet(seqNo, ackNo, flags, checksum, data)
-    
     # converts raw_bytes to a packet
     # header length = 2(seq#) + 2(ack#) + 1(flags) + 2(checksum) = 7 bytes in total
     @staticmethod
     def unpackBytesToPkt(raw_bytes):
+        if  len(raw_bytes) < HDR_LEN:
+            raise ValueError(f"Packet too short {len(raw_bytes)} to be valid bytes")
         seqNo, ackNo, flags, checksum, data = struct.unpack(
             f"=HHBH{len(raw_bytes)-HDR_LEN}s", raw_bytes
         )

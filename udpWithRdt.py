@@ -117,37 +117,45 @@ class connection:
         synPkt = packet(seqNo=0, ackNo=0, flags=SYN, checksum=0, data=b"")
         # 2. caclulate checksum
         synPkt.calcChecksum()
-        # 3.send packet
-        self._sendTo(synPkt)  
-        # 4. wait for synack note 2.1
-        raw_bytes, addr = self._recvFrom()    
-        # 5. convert raw_bytes to packets
-        synAckPkt = packet.unpackBytesToPkt(raw_bytes)
-        # 6. wait for SYNACK to send ACK
-        if synAckPkt.verifyChecksum() and synAckPkt.flags == SYNACK:
-            self.peerAddr = addr
-            # synAck
-            # synNo = 1 syn consumes 1 sequence # by convention
-            ackPkt = packet(
-                seqNo=1,
-                ackNo=(synAckPkt.seqNo + 1) & 0xFFFF,
-                flags=ACK,
-                checksum=0,
-                data=b"",
-            )
-            ackPkt.calcChecksum()
-            self._sendTo(ackPkt) 
-            self.seqNo = 1
-            self.ackNo = 1
+       # 3. Loop to send SYN and wait for SYNACK (Handles lost packets!)
+        while True:
+            self._sendTo(synPkt)
+            try:
+                # 4. wait for synack
+                synAckPkt, addr = self._recvFrom()    
+                # 6. check if it's the SYNACK we want
+                if synAckPkt.verifyChecksum() and synAckPkt.flags == SYNACK:
+                    break # We got it! Break out of the retry loop
+            except socket.timeout:
+                print("[client] Timeout waiting for SYNACK, resending SYN...")
+                pass # The loop will restart and send the SYN again
+
+        # 7. Setup connection and send ACK
+        self.peerAddr = addr
+        ackPkt = packet(
+            seqNo=1,
+            ackNo=(synAckPkt.seqNo + 1) & 0xFFFF,
+            flags=ACK,
+            checksum=0,
+            data=b"",
+        )
+        ackPkt.calcChecksum()
+        self._sendTo(ackPkt) 
+        self.seqNo = 1
+        self.ackNo = 1
+        print("[client] Connection established!")
 
     def accept(self):
         # server side
         # 1. wait for SYN
-        raw_bytes, addr = self._recvFrom()  
+        while True:
+            try:
+                rcvedPkt, addr = self._recvFrom()    
+                break # We received a packet, break out of the waiting loop!
+            except socket.timeout:
+                pass
         # store the client's address to send to after connection is established
         self.peerAddr = addr
-        # 2. unpack raw bytes to packet
-        rcvedPkt = packet.unpackBytesToPkt(raw_bytes)
         # 3. check if it is a SYN
         if rcvedPkt.verifyChecksum() and rcvedPkt.flags == SYN:
             # 4. send SYNACK
@@ -161,8 +169,7 @@ class connection:
             synAckPkt.calcChecksum()
             self._sendTo(synAckPkt)  
             # 5. wait for ACK
-            raw_bytes, addr = self._recvFrom()  
-            rcvedPkt = packet.unpackBytesToPkt(raw_bytes)
+            rcvedPkt, addr = self._recvFrom()
             # 6. check if it is an ACK
             if rcvedPkt.verifyChecksum() and rcvedPkt.flags == ACK:
                 # connection established
@@ -277,8 +284,6 @@ class connection:
                 self.socket.sendto(ackPkt.toBytes(),addr)
         except socket.timeout:
             print("[server] timeout waiting for FIN, closing socket anyway")
-        finally:
-            self.socket.close()
 
     def _dest(self):
         if self.destIP:
@@ -290,7 +295,7 @@ class connection:
  
     def _recvFrom(self):
         raw, addr = self.socket.recvfrom(1024)  # note 2.1
-        return packet.fromBytes(raw), addr
+        return packet.unpackBytesToPkt(raw), addr
 
 
 # -- documentation --

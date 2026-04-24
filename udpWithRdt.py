@@ -29,7 +29,7 @@ class packet:
         elif self.flags == 4: flag_name = "FIN"
         elif self.flags == 8: flag_name = "END"
         
-        return f"[Seq: {self.seqNo:<5} | Ack: {self.ackNo:<5} | Flag: {flag_name:<6} | Len: {len(self.data):<4}]"
+        return f"[Seq: {self.seqNo:<5} | Ack: {self.ackNo:<5} | Flag: {flag_name:<6} | Chk: {hex(self.checksum):<6} | Len: {len(self.data):<4}]"
 
     # converts the packet to bytes to send over UDP connection
     def toBytes(self):
@@ -77,6 +77,7 @@ class packet:
             total = (total & 0xFFFF) + (total >> 16)
         # 1's complement
         self.checksum = ~total & 0xFFFF
+        print(f"   [Checksum Calc] Seq: {self.seqNo} | 16-bit Sum: {hex(total)} | 1's Complement (Final Checksum): {hex(self.checksum)}")
 
     def verifyChecksum(self):
         raw_bytes = self.toBytes()
@@ -88,6 +89,8 @@ class packet:
             word = (raw_bytes[i] << 8) + raw_bytes[i + 1]
             total += word
             total = (total & 0xFFFF) + (total >> 16)
+        status = "VALID" if total == 0xFFFF else "CORRUPTED"
+        print(f"   [Checksum Verif] Seq: {self.seqNo} | Receiver Total: {hex(total)} | Status: {status}")
         # returns true if the sum+checksum is all ones (which is the sum of the whole packet)
         return total == 0xFFFF
 

@@ -28,8 +28,8 @@ def run_server():
                                     f"{body}"
                     else:
                         # 404 Not Found Response
-                        body = "<html><body><h1>File Not Found</h1></body></html>"
-                        response = f"HTTP/1.0 404 Not Found\r\n" \
+                        body = "<html><body><h1>Page not found</h1></body></html>"
+                        response = f"HTTP/1.0 404 NOT FOUND\r\n" \
                                     f"Content-Type: text/html\r\n" \
                                     f"Content-Length: {len(body)}\r\n" \
                                     f"Connection: close\r\n\r\n" \
@@ -43,7 +43,7 @@ def run_server():
                                 f"{body}"
                 else:
                 # Method not supported
-                    response = "HTTP/1.0 405 Method Not Allowed\r\n\r\n"
+                    response = "HTTP/1.0 400 BAD REQUEST\r\n\r\n"
                 server_conn.send(response)
             server_conn.waitClose() # wait for the client to close the connection
             print("[Server] Connection closed. Listening for next client...\n")
